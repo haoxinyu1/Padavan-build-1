@@ -1,5 +1,5 @@
 # 注意：修改 default:    中的型号为你需要编译的型号，注意名称要与configs/templates/目录下的名字相同
-name: Build RM2100 Padavan-3.4
+name: Build RM2100 Padavan-3.4-1
 
 on:
   workflow_dispatch:
@@ -67,11 +67,7 @@ jobs:
     - name: Prepare environment
       run: |
           sudo apt update
-          sudo apt install libtool-bin gperf python3-docutils autopoint gettext ccache              
-																										 
-																								 
-																									
-		  
+          sudo apt install libtool-bin gperf python3-docutils autopoint gettext ccache
     - name: Clone source code
       run: |
         git clone --depth=1 $REPOSITORY_URL ${{ env.DIR }}
@@ -79,10 +75,7 @@ jobs:
         sed -i '/cp -f/d' Makefile
         mkdir -p /opt/images/ 
 						
-    - name: Build Firmware
-		  
-													  
-																	  
+    - name: Build Firmware															  
       run: |
         if [ -f public/adguardhome.Makefile ] ; then
         mv -f public/adguardhome.Makefile ${{ env.DIR }}/trunk/user/adguardhome/Makefile
@@ -141,9 +134,7 @@ jobs:
         sed -i '/CONFIG_FIRMWARE_INCLUDE_ZEROTIER/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_DDNSTO/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_WIREGUARD/d' .config
-        sed -i '/CONFIG_FIRMWARE_INCLUDE_ALDRIVER/d' .config
-													   
-															 
+        sed -i '/CONFIG_FIRMWARE_INCLUDE_ALDRIVER/d' .config								 
         sed -i '/CONFIG_FIRMWARE_INCLUDE_MSD_LITE/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_IPERF3/d' .config
         sed -i '/CONFIG_FIRMWARE_INCLUDE_NAPT66/d' .config
@@ -197,8 +188,7 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_WIREGUARD=n" >>.config #wireguard 10k
         ##内网穿透服务##
         echo "CONFIG_FIRMWARE_INCLUDE_ALDRIVER=n" >> .config #ALDRIVER  ~3m
-        echo "CONFIG_FIRMWARE_INCLUDE_MSD_LITE=y" >> .config #MSD_LITE
-																		
+        echo "CONFIG_FIRMWARE_INCLUDE_MSD_LITE=y" >> .config #MSD_LITE																	
         echo "CONFIG_FIRMWARE_INCLUDE_IPERF3=y" >> .config #IPERF3
         echo "CONFIG_FIRMWARE_INCLUDE_NAPT66=y" >> .config #NAPT66
         #########################################################################################

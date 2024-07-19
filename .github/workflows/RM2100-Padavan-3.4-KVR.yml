@@ -17,17 +17,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: hendrikmuhs/ccache-action@v1.2
+    - uses: actions/checkout@main
+    - uses: hendrikmuhs/ccache-action@main
       with:
-        key: ${{ github.event.inputs.production }}
-        append-timestamp: false
-    - uses: actions/setup-go@v4
+          key: ${{ github.event.inputs.production }}-3.4
+    - uses: actions/setup-go@main
       with:
-        go-version: '1.20'
-        check-latest: true
-        cache-dependency-path: '**/go.sum'
-    - name: 生成版本号
+          go-version: '1.22'
+          check-latest: true
+          cache: false
+    - uses: actions/setup-node@main
+      with:
+          node-version: 20
+          check-latest: true          
+    - name: Generate version number
       run: |
         whoami
         id

@@ -202,7 +202,7 @@ jobs:
         echo "CONFIG_FIRMWARE_INCLUDE_WIREGUARD=n" >>.config #wireguard 10k
         ##内网穿透服务##
         echo "CONFIG_FIRMWARE_INCLUDE_ALDRIVER=n" >> .config #ALDRIVER  ~3m
-        echo "CONFIG_FIRMWARE_INCLUDE_MSD_LITE=y" >> .config #MSD_LITE
+        echo "CONFIG_FIRMWARE_INCLUDE_MSD_LITE=n" >> .config #MSD_LITE
         echo "CONFIG_FIRMWARE_INCLUDE_IPERF3=n" >> .config #IPERF3
         echo "CONFIG_FIRMWARE_INCLUDE_NAPT66=n" >> .config #NAPT66
         #########################################################################################
@@ -256,6 +256,6 @@ jobs:
         body_path: /opt/images/readme.txt
         draft: false
         prerelease: false
-        files: /opt/images/*
+        文件: /opt/images/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -88,6 +88,24 @@ jobs:
         echo "16进制$clock"
         sed -i "554,555s:0xff:0x7ff:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
         sed -i "554,556s:0xc2:0x$clock:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
+
+        ############################################################################################
+        # RM2100 Storage Modification (80MB Storage / 60MB Tmp)
+        ############################################################################################
+        echo "Executing Storage modification for RM2100..."
+        # 1. 修改内核配置：Storage 分区设为 80MB
+        # 计算：80 * 1024 * 1024 = 83886080 (十进制) = 0x5000000 (十六进制)
+        sed -i 's/SIZ=0x0400000/SIZ=0x5000000/g' ${{ env.DIR }}/trunk/configs/boards/RM2100/kernel-3.4.x-5.0.config
+        # 2. 修改 dev_init.sh：/etc/storage 空间限制设为 80M
+        sed -i 's/size_etc="6M"/size_etc="80M"/g' ${{ env.DIR }}/trunk/user/scripts/dev_init.sh
+        # 3. 修改 dev_init.sh：/tmp 内存临时目录限制设为 60M
+        sed -i 's/size_tmp="24M"/size_tmp="60M"/g' ${{ env.DIR }}/trunk/user/scripts/dev_init.sh
+        # 4. 修改 mtd_storage.sh：保存检查大小设为 80MB 的字节数
+        # 80MB = 83886080 字节
+        sed -i 's/mtd_part_size=65536/mtd_part_size=83886080/g' ${{ env.DIR }}/trunk/user/scripts/mtd_storage.sh
+        echo "Storage modification completed."
+        ############################################################################################
+
         for m in $TNAME;
         do
         if [ ! -f configs/templates/$m.config ] ; then

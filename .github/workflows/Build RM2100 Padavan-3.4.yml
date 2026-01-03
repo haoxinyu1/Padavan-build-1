@@ -1,13 +1,10 @@
 # 文件名: .github/workflows/build-padavan.yml
 
-# 注意：这个工作流的名称，可以自定义
 name: Build RM2100 Padavan-3.4
 
 on:
-  # 允许你从 Actions 选项卡手动触发此工作流
   workflow_dispatch:
     inputs:
-      # 编译时输入的参数
       production:
         description: '设置编译的固件型号, 如果有多个，用空格分隔.'
         default: 'RM2100'
@@ -17,26 +14,20 @@ on:
         default: 'yes'
         required: false
 
-# 环境变量设置
 env:
-  MHZ: 1100               # CPU超频频率 (必须为20的倍数, 例如 1000, 1020, 1100)
+  MHZ: 1100
   TNAME: ${{ github.event.inputs.production }}
-  REPOSITORY_URL: https://github.com/haoxinyu1/Padavan-3.4-KVR.git # 你的固件源码仓库地址
-         
+  REPOSITORY_URL: https://github.com/haoxinyu1/Padavan-3.4-KVR.git
+
 jobs:
   build:
-    runs-on: ubuntu-latest # 使用最新的 Ubuntu 虚拟机环境
+    runs-on: ubuntu-latest
     
     steps:
-    # 步骤1：检出当前仓库的代码 (为了获取 public/ 目录下的自定义文件)
     - uses: actions/checkout@main
-
-    # 步骤2：设置 ccache 编译缓存，加快后续编译速度
     - uses: hendrikmuhs/ccache-action@main
       with:
           key: ${{ github.event.inputs.production }}-3.4
-
-    # 步骤3：设置 Go 和 Node.js 环境 (某些插件可能需要)
     - uses: actions/setup-go@main
       with:
           go-version: '1.23'
@@ -47,10 +38,8 @@ jobs:
           node-version: 22
           check-latest: true          
 
-    # 步骤4：生成版本号等环境变量
     - name: Generate version number
       run: |
-        echo "当前工作目录: $(pwd)"
         VERSION=$(TZ='Asia/Shanghai' date +%Y.%m.%d-%H%M)
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "DIR=/opt/rt-n56u" >> $GITHUB_ENV
@@ -58,31 +47,25 @@ jobs:
         echo "NAME=${val1}_3.4_$VERSION" >> $GITHUB_ENV
         echo "TAG=v$VERSION" >> $GITHUB_ENV
 
-    # 步骤5：创建编译和输出目录
     - name: Create build directories
       run: |
         sudo mkdir -m 777 -p ${{ env.DIR }}
         sudo mkdir -m 777 -p /opt/images/
         echo "开始编译时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')" > /opt/images/readme.txt
 
-    # 步骤6：准备编译依赖
     - name: Prepare environment
       run: |
           sudo apt update
           sudo apt install libtool-bin gperf python3-docutils autopoint gettext ccache liblzma-dev zlib1g-dev automake libtool libltdl-dev
 
-    # 步骤7：克隆 Padavan 固件源码
     - name: Clone source code
       run: |
         git clone --depth=1 $REPOSITORY_URL ${{ env.DIR }}
         cd ${{ env.DIR }}
-        # 移除可能导致权限问题的 cp -f 命令
         sed -i '/cp -f/d' Makefile
 
-    # 步骤8：执行编译 (这是核心步骤)
     - name: Build Firmware
       run: |
-        # 复制你的自定义文件到源码目录
         if [ -f public/adguardhome.Makefile ]; then
             mv -f public/adguardhome.Makefile ${{ env.DIR }}/trunk/user/adguardhome/Makefile
             echo "AdGuardHome Makefile file copy success"
@@ -92,14 +75,11 @@ jobs:
         
         cd ${{ env.DIR }}/trunk
 
-        # --- CPU超频修改 ---
         echo "设置CPU超频到 ${MHZ}MHz"
         clock=$(echo "obase=16 ; ibase=10 ; (((($MHZ/20)-1)*16+2))" | bc)
-        echo "计算出的时钟寄存器值为: 0x$clock"
         sed -i "554,555s:0xff:0x7ff:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
         sed -i "554,556s:0xc2:0x$clock:g" ${{ env.DIR }}/trunk/linux-3.4.x/arch/mips/rt2880/init.c
 
-        # --- RM2100 闪存和内存分区修改 ---
         echo "正在为 RM2100 修改闪存分区..."
         sed -i 's/SIZ=0x0400000/SIZ=0x5000000/g' ${{ env.DIR }}/trunk/configs/boards/RM2100/kernel-3.4.x-5.0.config
         sed -i 's/size_etc="6M"/size_etc="80M"/g' ${{ env.DIR }}/trunk/user/scripts/dev_init.sh
@@ -107,7 +87,6 @@ jobs:
         sed -i 's/mtd_part_size=65536/mtd_part_size=83886080/g' ${{ env.DIR }}/trunk/user/scripts/mtd_storage.sh
         echo "分区修改完成."
         
-        # --- 循环处理并编译每个指定的型号 ---
         for m in $TNAME;
         do
             echo "开始为型号 [$m] 生成配置文件..."
@@ -116,11 +95,9 @@ jobs:
                 exit 1
             fi
 
-            # **关键步骤**: 复制模板作为基础配置
             cp -f configs/templates/$m.config .config
             
-            # --- 功能定制区域 ---
-            # **第1步: 先删除所有可能存在的旧配置，避免冲突**
+            # --- 功能定制区域 (删除旧配置) ---
             sed -i '/CONFIG_FIRMWARE_INCLUDE_MENTOHUST/d' .config
             sed -i '/CONFIG_FIRMWARE_INCLUDE_SOFTETHERVPN/d' .config
             sed -i '/CONFIG_FIRMWARE_INCLUDE_SCUTCLIENT/d' .config
@@ -153,60 +130,51 @@ jobs:
             sed -i '/CONFIG_FIRMWARE_INCLUDE_IPERF3/d' .config
             sed -i '/CONFIG_FIRMWARE_INCLUDE_NAPT66/d' .config
             
-            # **第2步: 重新写入你需要的功能 (y=集成, n=不集成)**
+            # --- 功能定制区域 (写入新配置) ---
             sed -i 's/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=n/CONFIG_FIRMWARE_INCLUDE_OPENSSL_EXE=y/g' .config
-
             echo "CONFIG_FIRMWARE_INCLUDE_MENTOHUST=n" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_SCUTCLIENT=n" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_SRELAY=n" >> .config
-            echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> .config # MT7621超频选项
-            
-            ## 科学上网 ## 
+            echo "CONFIG_FIRMWARE_CPU_900MHZ=y" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS=y" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_SSOBFS=n" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_V2RAY=n" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_XRAY=y" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_TROJAN=y" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_KUMASOCKS=n" >> .config
-
-            ## 广告管理 ##
             echo "CONFIG_FIRMWARE_INCLUDE_ADBYBY=y" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_KOOLPROXY=n" >> .config
-            
-            ## DNS服务 ##
             echo "CONFIG_FIRMWARE_INCLUDE_SMARTDNS=y" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME=n" >> .config
-            
-            ## 文件管理 ##
             echo "CONFIG_FIRMWARE_INCLUDE_CADDY=n" >> .config
-            
-            ## 音乐解锁 ##
             echo "CONFIG_FIRMWARE_INCLUDE_WYY=n" >> .config
-            
-            ## 内网穿透服务 ##
             echo "CONFIG_FIRMWARE_INCLUDE_ZEROTIER=y" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_ALIDDNS=n" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_FRPC=n" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_FRPS=n" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_DDNSTO=n" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_WIREGUARD=n" >> .config
-
-            ## 其他工具 ##
             echo "CONFIG_FIRMWARE_INCLUDE_MSD_LITE=y" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_IPERF3=y" >> .config
             echo "CONFIG_FIRMWARE_INCLUDE_NAPT66=y" >> .config
             
             echo "配置文件 [$m.config] 生成完毕."
+
+            # 【【【 核心修正 】】】
+            # 1. 切换回项目根目录，这是 make 命令的正确执行位置
+            cd ${{ env.DIR }}
             
-            # **第3步: 执行编译**
-            echo "开始编译型号 [$m]..."
+            # 2. 在根目录执行编译
+            echo "开始在根目录编译型号 [$m]..."
             sudo make $m
             
-            # 编译完成后，移动固件到输出目录
-            sudo mv -f images/*.trx /opt/images/
+            # 3. 将编译好的固件移动到输出目录
+            sudo mv -f trunk/images/*.trx /opt/images/
+
+            # 为了让循环继续，需要再次回到 trunk 目录
+            cd ${{ env.DIR }}/trunk
         done
 
-    # 步骤9：收集编译产物信息
     - name: Collect artifact information
       run: |
         echo "完成编译时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')" >> /opt/images/readme.txt
@@ -216,7 +184,6 @@ jobs:
         echo "" >> /opt/images/readme.txt
         echo "固件MD5校验值:" >> /opt/images/readme.txt
         cd /opt/images
-        # 重命名固件，加入版本号
         for i in *.trx; do
           mv -v "$i" "${i%.*}-${{ env.VERSION }}.trx"
         done
@@ -224,14 +191,12 @@ jobs:
         echo "最终文件列表:"
         ls -lh
 
-    # 步骤10：上传固件到 Artifacts，方便下载
     - name: Upload images to Artifact
       uses: actions/upload-artifact@main
       with:
         name: ${{ env.NAME }}
         path: /opt/images/
 
-    # 步骤11：如果设置为 'yes'，则发布到 GitHub Releases
     - name: Upload images to Releases
       if: ${{ github.event.inputs.release == 'yes' }}
       uses: softprops/action-gh-release@master
